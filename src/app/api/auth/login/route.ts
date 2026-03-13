@@ -6,22 +6,26 @@ import { signAccessToken, signRefreshToken } from '@/lib/jwt'
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { email, password } = body
+    const { identifier, password } = body
 
-    if (!email || !password) {
+    if (!identifier || !password) {
       return NextResponse.json(
-        { success: false, error: 'Email and password are required' },
+        { success: false, error: 'Username/email and password are required' },
         { status: 400 }
       )
     }
 
+    // Support login via username OR email
     const result = await sql`
-      SELECT id, username, email, password_hash, nickname FROM users WHERE email = ${email}
+      SELECT id, username, email, password_hash, nickname
+      FROM users
+      WHERE email = ${identifier} OR username = ${identifier}
+      LIMIT 1
     `
 
     if (result.rows.length === 0) {
       return NextResponse.json(
-        { success: false, error: 'Invalid email or password' },
+        { success: false, error: 'Invalid username/email or password' },
         { status: 401 }
       )
     }
@@ -31,7 +35,7 @@ export async function POST(request: NextRequest) {
 
     if (!passwordMatch) {
       return NextResponse.json(
-        { success: false, error: 'Invalid email or password' },
+        { success: false, error: 'Invalid username/email or password' },
         { status: 401 }
       )
     }

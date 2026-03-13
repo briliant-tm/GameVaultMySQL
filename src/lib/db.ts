@@ -67,9 +67,18 @@ export async function initializeDatabase() {
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
       )
     `)
+    console.log('[GameVault] Database tables ready.')
   } finally {
     conn.release()
   }
+}
+
+// Auto-initialize tables when server starts
+let initialized = false
+export async function ensureInitialized() {
+  if (initialized) return
+  await initializeDatabase()
+  initialized = true
 }
 
 export { pool }

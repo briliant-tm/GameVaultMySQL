@@ -10,8 +10,8 @@ export default function LandingClient() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  // Login state
-  const [loginEmail, setLoginEmail] = useState('')
+  // Login state — identifier = username OR email
+  const [loginIdentifier, setLoginIdentifier] = useState('')
   const [loginPassword, setLoginPassword] = useState('')
 
   // Register state
@@ -28,7 +28,7 @@ export default function LandingClient() {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: loginEmail, password: loginPassword }),
+        body: JSON.stringify({ identifier: loginIdentifier, password: loginPassword }),
       })
       const data = await res.json()
       if (!data.success) throw new Error(data.error)
@@ -74,7 +74,6 @@ export default function LandingClient() {
 
   return (
     <div className={styles.landing}>
-      {/* Background decoration */}
       <div className={styles.bgGlow} />
       <div className={styles.bgGrid} />
 
@@ -143,7 +142,7 @@ export default function LandingClient() {
         </div>
       </main>
 
-      {/* Auth Modal Overlay */}
+      {/* Auth Modal */}
       {mode !== 'none' && (
         <div className={styles.overlay} onClick={closeModal}>
           <div className={styles.modal} onClick={e => e.stopPropagation()}>
@@ -169,14 +168,16 @@ export default function LandingClient() {
             {mode === 'login' && (
               <form onSubmit={handleLogin} className={styles.form}>
                 <div className={styles.formGroup}>
-                  <label className={styles.label}>Email</label>
+                  <label className={styles.label}>Username or Email</label>
                   <input
-                    type="email"
+                    type="text"
                     className={styles.input}
-                    placeholder="you@example.com"
-                    value={loginEmail}
-                    onChange={e => setLoginEmail(e.target.value)}
+                    placeholder="e.g. gamer123 or you@example.com"
+                    value={loginIdentifier}
+                    onChange={e => setLoginIdentifier(e.target.value)}
                     required
+                    autoComplete="username"
+                    autoFocus
                   />
                 </div>
                 <div className={styles.formGroup}>
@@ -188,6 +189,7 @@ export default function LandingClient() {
                     value={loginPassword}
                     onChange={e => setLoginPassword(e.target.value)}
                     required
+                    autoComplete="current-password"
                   />
                 </div>
                 <button type="submit" className={styles.btnSubmit} disabled={loading}>
@@ -208,6 +210,7 @@ export default function LandingClient() {
                       value={regUsername}
                       onChange={e => setRegUsername(e.target.value)}
                       required
+                      autoComplete="username"
                     />
                   </div>
                   <div className={styles.formGroup}>
@@ -230,6 +233,7 @@ export default function LandingClient() {
                     value={regEmail}
                     onChange={e => setRegEmail(e.target.value)}
                     required
+                    autoComplete="email"
                   />
                 </div>
                 <div className={styles.formGroup}>
@@ -242,6 +246,7 @@ export default function LandingClient() {
                     onChange={e => setRegPassword(e.target.value)}
                     required
                     minLength={6}
+                    autoComplete="new-password"
                   />
                 </div>
                 <button type="submit" className={styles.btnSubmit} disabled={loading}>

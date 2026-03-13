@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import type { Game } from '@/types'
 import styles from './GameModal.module.css'
 
@@ -19,7 +19,10 @@ export default function GameModal({ game, platformOptions, onClose, onSave }: Pr
   const [coverUrl, setCoverUrl] = useState(game?.cover_url || '')
   const [notes, setNotes] = useState(game?.notes || '')
   const [loading, setLoading] = useState(false)
+  const [uploading, setUploading] = useState(false)
   const [error, setError] = useState('')
+  const [dragOver, setDragOver] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const OTHER = '__other__'
 
@@ -35,6 +38,58 @@ export default function GameModal({ game, platformOptions, onClose, onSave }: Pr
   }, [game, platformOptions])
 
   const platform = platformPreset === OTHER ? platformCustom : platformPreset
+
+  const handleFileUpload = async (file: File) => {
+    if (!file) return
+
+    const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+    if (!allowed.includes(file.type)) {
+      setError('Only JPG, PNG, WEBP, and GIF images are allowed')
+      return
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setError('Image must be under 5MB')
+      return
+    }
+
+    setUploading(true)
+    setError('')
+
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      })
+      const data = await res.json()
+
+      if (!data.success) throw new Error(data.error)
+      setCoverUrl(data.data.url)
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to upload image')
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) handleFileUpload(file)
+  }
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    setDragOver(false)
+    const file = e.dataTransfer.files?.[0]
+    if (file) handleFileUpload(file)
+  }
+
+  const handleRemoveCover = () => {
+    setCoverUrl('')
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -138,20 +193,56 @@ export default function GameModal({ game, platformOptions, onClose, onSave }: Pr
             </div>
           )}
 
+          {/* Cover Image Upload */}
           <div className={styles.formGroup}>
-            <label className={styles.label}>Cover Image URL <span className={styles.optional}>(optional)</span></label>
-            <input
-              type="url"
-              className={styles.input}
-              placeholder="https://..."
-              value={coverUrl}
-              onChange={e => setCoverUrl(e.target.value)}
-            />
-            {coverUrl && (
-              <div className={styles.coverPreview}>
-                <img src={coverUrl} alt="Cover preview" onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
+            <label className={styles.label}>Cover Image <span className={styles.optional}>(optional)</span></label>
+
+            {coverUrl ? (
+              <div className={styles.coverPreviewLarge}>
+                <img src={coverUrl} alt="Cover preview" />
+                <div className={styles.coverOverlay}>
+                  <button type="button" className={styles.coverChangeBtn} onClick={() => fileInputRef.current?.click()}>
+                    Change Image
+                  </button>
+                  <button type="button" className={styles.coverRemoveBtn} onClick={handleRemoveCover}>
+                    Remove
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div
+                className={`${styles.uploadZone} ${dragOver ? styles.dragOver : ''} ${uploading ? styles.uploading : ''}`}
+                onClick={() => fileInputRef.current?.click()}
+                onDragOver={e => { e.preventDefault(); setDragOver(true) }}
+                onDragLeave={() => setDragOver(false)}
+                onDrop={handleDrop}
+              >
+                {uploading ? (
+                  <div className={styles.uploadingState}>
+                    <span className={styles.spinner} />
+                    <span>Uploading...</span>
+                  </div>
+                ) : (
+                  <div className={styles.uploadPrompt}>
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                      <rect x="3" y="3" width="18" height="18" rx="3"/>
+                      <circle cx="8.5" cy="8.5" r="1.5"/>
+                      <path d="M21 15l-5-5L5 21"/>
+                    </svg>
+                    <span className={styles.uploadText}>Click to upload or drag & drop</span>
+                    <span className={styles.uploadHint}>JPG, PNG, WEBP, GIF · max 5MB</span>
+                  </div>
+                )}
               </div>
             )}
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              onChange={handleFileChange}
+              style={{ display: 'none' }}
+            />
           </div>
 
           <div className={styles.formGroup}>
@@ -167,7 +258,7 @@ export default function GameModal({ game, platformOptions, onClose, onSave }: Pr
 
           <div className={styles.formActions}>
             <button type="button" className={styles.btnCancel} onClick={onClose}>Cancel</button>
-            <button type="submit" className={styles.btnSave} disabled={loading}>
+            <button type="submit" className={styles.btnSave} disabled={loading || uploading}>
               {loading ? <span className={styles.spinner} /> : game ? 'Save Changes' : 'Add to Library'}
             </button>
           </div>
